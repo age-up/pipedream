@@ -28,6 +28,35 @@ If you're encountering a specific issue in a workflow, try the following steps, 
 
 If you're still seeing the issue after trying these steps, please reach out in [the community](https://pipedream.com/support).
 
+## Why am I seeing more than one invocation charged each time my workflow runs?
+
+Pipedream counts an **invocation** each time a workflow or event source is triggered by an incoming event. 
+
+If an event emitted by an event source triggers a single workflow, that will count as **two** invocations: one for the source, and one for the workflow. In other words, source and workflow execution is distinct: each counts invocations on its own.
+
+Your workflow's [memory settings](/workflows/settings/#memory) also impact the number of invocations you're charged for each workflow execution. [Read more here](/pricing/#how-does-workflow-memory-affect-billable-invocations).
+
+To see your invocations broken out by resource, visit [https://pipedream.com/settings/billing?invocationsByResource=1](https://pipedream.com/settings/billing?invocationsByResource=1). This will show you the invocations charged for your workflow, event source, or other resources.
+
+## Why is my trigger not emitting events?
+
+Most Pipedream sources fall into one of two categories: webhook-based or timer-based.
+
+### Webhook-based instant sources
+
+- These sources will get triggered immediately. But because events come in in real-time, most will **not** automatically fetch historical events upon creation.
+- To surface test events in your workflow while building, you'll need to generate an eligible event in the selected app.
+- For example, if you've configured the "[Message Updates (Instant)](https://pipedream.com/apps/telegram-bot-api/triggers/message-updates) Telegram source, you'll need to send a message in the Telegram account you've selected in order for an event to appear.
+![Select an event](https://res.cloudinary.com/pipedreamin/image/upload/v1653434586/docs/webhook-triggers-select-event_qj7nlp.png)
+- Sources for apps like [Telegram](https://pipedream.com/apps/telegram-bot-api/triggers/message-updates) and [Google Sheets](https://pipedream.com/apps/google-sheets/triggers/new-row-added) use webhooks and get triggered immediately.
+
+### Timer-based polling sources
+
+- These sources will fetch new events on a regular interval, based on a schedule you specify in the trigger configuration.
+![Configure polling timer](https://res.cloudinary.com/pipedreamin/image/upload/v1653434591/docs/polling-triggers-timer_ooz26c.png)
+- In most cases, Pipedream will automatically fetch recent historical events to help enable easier workflow development.
+- Sources for apps like [Twitter](https://pipedream.com/apps/twitter/triggers/search-mentions) and [Spotify](https://pipedream.com/apps/spotify/triggers/new-playlist) require we poll their endpoints in order to fetch new events.
+
 ## Where do I find my workflow's ID?
 
 Open [https://pipedream.com](https://pipedream.com) and visit your workflow. Copy the URL that appears in your browser's address bar. For example:
@@ -54,7 +83,7 @@ Pipedream displays warnings below steps in certain conditions. These warnings do
 
 ### This step was still trying to run code when the step ended. Make sure you await all Promises, or promisify callback functions.
 
-See the reference on [running asynchronous code on Pipedream](/workflows/steps/code/async/).
+See the reference on [running asynchronous code on Pipedream](/code/nodejs/async/).
 
 ## Pipedream Internal Errors
 
@@ -64,13 +93,13 @@ Pipedream sets [limits](/limits/) on runtime, memory, and other execution-relate
 
 On the [Developer (free) tier](/pricing/#developer-tier), Pipedream imposes a limit on the [daily invocations](/limits/#daily-invocations) across all workflows and sources. If you hit this limit, you'll see an **Invocations Quota Exceeded** error.
 
-Paid plans, like the [Professional Tier](#professional-tier), have no invocations limit. [Upgrade here](https://pipedream.com/pricing). 
+Paid plans, like the [Professional Tier](/pricing/#professional-tier), have no invocations limit. [Upgrade here](https://pipedream.com/pricing). 
 
 ### Runtime Quota Exceeded
 
 On the [Developer (free) tier](/pricing/#developer-tier), Pipedream imposes a limit on the [daily compute time](/limits/#compute-time-per-day) across all workflows and sources. If you hit this limit, you'll see a **Runtime Quota Exceeded** error.
 
-Paid plans, like the [Professional Tier](#professional-tier), have no compute time limit. [Upgrade here](https://pipedream.com/pricing).
+Paid plans, like the [Professional Tier](/pricing/#professional-tier), have no compute time limit. [Upgrade here](https://pipedream.com/pricing).
 
 ### Timeout
 
@@ -85,7 +114,7 @@ To address timeouts, you'll either need to:
 
 Pipedream [limits the default memory](/limits/#memory) available to workflows and event sources. If you exceed this memory, you'll see an **Out of Memory** error.
 
-This can happen for a variety of reasons. Normally, it can occur when you try to load a large file or object into a variable / memory. Where possible, consider streaming the file to / from disk, instead of storing it in memory, using a [technique like this](/workflows/steps/code/nodejs/http-requests/#download-a-file-to-the-tmp-directory).
+This can happen for a variety of reasons. Normally, it can occur when you try to load a large file or object into a variable / memory. Where possible, consider streaming the file to / from disk, instead of storing it in memory, using a [technique like this](/code/nodejs/http-requests/#download-a-file-to-the-tmp-directory).
 
 **You can raise the memory of your workflow [in your workflow's Settings](/workflows/settings/#memory)**.
 
@@ -108,7 +137,7 @@ Pipedream supports two different ways to bypass this limit. Both of these interf
 
 The total size of `console.log()` statements, [step exports](/workflows/steps/#step-exports), and the original event data sent to workflows and sources cannot exceed a combined size of `{{$site.themeConfig.FUNCTION_PAYLOAD_LIMIT}}`. If you produce logs or step exports larger than this - for example, passing around large API responses, CSVs, or other data - you may encounter a **Function Payload Limit Exceeded** in your workflow.
 
-Often, this occurs when you pass large data between steps using [step exports](/workflows/steps/#step-exports). You can avoid this error by [writing that data to the `/tmp` directory](/workflows/steps/code/nodejs/working-with-files/#writing-a-file-to-tmp) in one step, and [reading the data into another step](/workflows/steps/code/nodejs/working-with-files/#reading-a-file-from-tmp), which avoids the use of step exports and should keep you under the payload limit.
+Often, this occurs when you pass large data between steps using [step exports](/workflows/steps/#step-exports). You can avoid this error by [writing that data to the `/tmp` directory](/code/nodejs/working-with-files/#writing-a-file-to-tmp) in one step, and [reading the data into another step](/code/nodejs/working-with-files/#reading-a-file-from-tmp), which avoids the use of step exports and should keep you under the payload limit.
 
 Pipedream also compresses the function payload from your workflow, which can yield roughly a 2x-3x increase in payload size (somewhere between `12MB` and `18MB`), depending on the data.
 
@@ -120,6 +149,6 @@ Often, objects with this many nested objects result from a programming error tha
 
 ### Event Queue Full
 
-Workflows have a maximum event queue size when using concurrency and throttling controls. If the number of unprocessed events exceeds the [maximum queue size](/workflows/events/concurrency-and-throttling/#increasing-the-queue-size-for-a-workflow), you may encounter an **Event Queue Full** error.
+Workflows have a maximum event queue size when using concurrency and throttling controls. If the number of unprocessed events exceeds the [maximum queue size](/workflows/concurrency-and-throttling/#increasing-the-queue-size-for-a-workflow), you may encounter an **Event Queue Full** error.
 
-[Paid plans](https://pipedream.com/pricing) can [increase their queue size up to {{$site.themeConfig.MAX_WORKFLOW_QUEUE_SIZE}}](/workflows/events/concurrency-and-throttling/#increasing-the-queue-size-for-a-workflow) for a given workflow.
+[Paid plans](https://pipedream.com/pricing) can [increase their queue size up to {{$site.themeConfig.MAX_WORKFLOW_QUEUE_SIZE}}](/workflows/concurrency-and-throttling/#increasing-the-queue-size-for-a-workflow) for a given workflow.

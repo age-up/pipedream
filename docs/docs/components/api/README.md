@@ -1,5 +1,9 @@
 # Component API Reference
 
+::: tip
+Our TypeScript component API is in **beta**. If you're interested in developing TypeScript components and providing feedback, [see our TypeScript docs](/components/typescript/).
+:::
+
 This document was created to help developers author and use [Pipedream components](/components/). Not only can you develop [sources](/components/quickstart/nodejs/sources/) (workflow triggers) and [actions](/components/quickstart/nodejs/actions/) using the component API, but you can also develop [Node.js steps](/code/nodejs/) right in your workflows - without leaving your browser! You can publish components to your account for private use, or [contribute them to the Pipedream registry](/components/guidelines/) for anyone to run.
 
 While sources and actions share the same core component API, they differ in both how they're used and written, so certain parts of the component API apply only to one or the other. [This section of the docs](#differences-between-sources-and-actions) explains the core differences. When this document uses the term "component", the corresponding feature applies to both sources and actions. If a specific feature applies to only sources _or_ actions, the correct term will be used.
@@ -12,7 +16,7 @@ If you have any questions about component development, please reach out [in our 
 
 ### What is a component?
 
-Components are Node.js [CommonJS modules](https://flaviocopes.com/commonjs/) that run on Pipedream's serverless infrastructure.
+Components are Node.js modules that run on Pipedream's serverless infrastructure.
 
 - Trigger Node.js code on HTTP requests, timers, cron schedules, or manually
 - Emit data on each event to inspect it. Trigger Pipedream hosted workflows or access it outside of Pipedream via API
@@ -338,6 +342,67 @@ lists: {
 
 `configuredProps` contains the props the user previously configured (the board). This allows the `lists` prop to use it in the `options` method.
 
+##### Dynamic props
+
+Some prop definitions must be computed dynamically, after the user configures another prop. We call these **dynamic props**, since they are rendered on-the-fly. This technique is used in [the Google Sheets **Add Single Row** action](https://github.com/PipedreamHQ/pipedream/blob/master/components/google_sheets/actions/add-single-row/add-single-row.mjs), which we'll use as an example below.
+
+First, determine the prop whose selection should render dynamic props. In the Google Sheets example, we ask the user whether their sheet contains a header row. If it does, we display header fields as individual props:
+
+<div>
+<img alt="Google Sheets Additional props example - header columns loading as props" src="https://res.cloudinary.com/pipedreamin/image/upload/v1654129371/docs/additional-props_lx5jtv.gif">
+</div>
+
+To load dynamic props, the header prop must have the `reloadProps` field set to `true`:
+
+```javascript
+hasHeaders: {
+  type: "string",
+  label: "Does the first row of the sheet have headers?",
+  description: "If the first row of your document has headers we'll retrieve them to make it easy to enter the value for each column.",
+  options: [
+    "Yes",
+    "No",
+  ],
+  reloadProps: true,
+},
+```
+
+When a user chooses a value for this prop, Pipedream runs the `additionalProps` component method to render props:
+
+```javascript
+async additionalProps() {
+  const sheetId = this.sheetId?.value || this.sheetId;
+  const props = {};
+  if (this.hasHeaders === "Yes") {
+    const { values } = await this.googleSheets.getSpreadsheetValues(sheetId, `${this.sheetName}!1:1`);
+    if (!values[0]?.length) {
+      throw new ConfigurationError("Cound not find a header row. Please either add headers and click \"Refresh fields\" or adjust the action configuration to continue.");
+    }
+    for (let i = 0; i < values[0]?.length; i++) {
+      props[`col_${i.toString().padStart(4, "0")}`] = {
+        type: "string",
+        label: values[0][i],
+        optional: true,
+      };
+    }
+  } else if (this.hasHeaders === "No") {
+    props.myColumnData = {
+      type: "string[]",
+      label: "Values",
+      description: "Provide a value for each cell of the row. Google Sheets accepts strings, numbers and boolean values for each cell. To set a cell to an empty value, pass an empty string.",
+    };
+  }
+  return props;
+},
+```
+The signature of this function is:
+
+```javascript
+async additionalProps(previousPropDefs)
+```
+
+where `previousPropDefs` are the full set of props (props merged with the previous `additionalProps`). When the function is executed, `this` is bound similar to when the `run` function is called, where you can access the values of the props as currently configured, and call any `methods`. The return value of `additionalProps` will replace any previous call, and that return value will be merged with props to define the final set of props.
+
 #### Interface Props
 
 Interface props are infrastructure abstractions provided by the Pipedream platform. They declare how a source is invoked — via HTTP request, run on a schedule, etc. — and therefore define the shape of the events it processes.
@@ -560,7 +625,7 @@ props: {
 
 When a user configures a prop with a value, it can hold at most `{{$site.themeConfig.CONFIGURED_PROPS_SIZE_LIMIT}}` data. Consider this when accepting large input in these fields (such as a base64 string).
 
-The `{{$site.themeConfig.CONFIGURED_PROPS_SIZE_LIMIT}}` limit applies only to static values entered as raw text. In workflows, users can pass expressions (referencing data in a prior step). In that case the prop value is simply the text of the expression, for example <code v-pre>{{steps.nodejs.$return_value}}</code>, well below the limit. The value of these expressions is evaluated at runtime, and are subject to [different limits](/limits/).
+The `{{$site.themeConfig.CONFIGURED_PROPS_SIZE_LIMIT}}` limit applies only to static values entered as raw text. In workflows, users can pass expressions (referencing data in a prior step). In that case the prop value is simply the text of the expression, for example <ClientOnly><code v-pre>{{steps.nodejs.$return_value}}</code></ClientOnly>, well below the limit. The value of these expressions is evaluated at runtime, and are subject to [different limits](/limits/).
 
 ### Methods
 
@@ -612,7 +677,7 @@ hooks: {
 
 Each time a component is invoked, its `run` method is called. Sources are invoked by their [interface](#interface-props) (for example, via HTTP request). Actions are run when their parent workflow is triggered.
 
-You can reference [`this`](#referencing-this) within the `run` method. `this` refers to the component, and provides access to [props](#props), [methods](#methods), and more.
+You can reference `this` within the `run` method. `this` refers to the component, and provides access to [props](#props), [methods](#methods), and more.
 
 #### Sources
 
@@ -734,8 +799,6 @@ async run({ $ }) {
 }
 ```
 
-It functions the same way as [`$end` in workflow code steps](/workflows/steps/code/#end).
-
 **`$.summary`**
 
 `$.summary` is used to surface brief, user-friendly summaries about what happened when an action step succeeds. For example, when [adding items to a Spotify playlist](https://github.com/PipedreamHQ/pipedream/blob/master/components/spotify/actions/add-items-to-playlist/add-items-to-playlist.mjs#L51):
@@ -778,9 +841,9 @@ $.export("$summary", `Successfully added ${data.length} ${data.length == 1 ? "it
 
 [Environment variables](/environment-variables/) are not accessible within sources or actions directly. Since components can be used by anyone, you cannot guarantee that a user will have a specific variable set in their environment.
 
-For sources, you can use [`secret` props](#props) to reference sensitive data.
+In sources, you can use [`secret` props](#props) to reference sensitive data.
 
-For actions, you can pass environment variables as the values of props using the [object explorer](/workflows/steps/params/#use-the-object-explorer) within your workflow.
+In actions, you'll see a list of your environment variables in the object explorer when selecting a variable to pass to a step:
 
 ### Using npm packages
 
@@ -916,7 +979,7 @@ You can delete a component via the UI at [https://pipedream.com/sources](https:/
 
 #### API
 
-See the [REST API docs](/api/rest/#operations).
+See the [REST API docs](/api/rest/)).
 
 ### Managing Actions
 
@@ -972,7 +1035,7 @@ On delete, Pipedream invokes the `deactivate()` hook and then deletes the deploy
 
 On deploy, Pipedream creates an instance of a saved component and invokes the optional `deploy()` and `activate()` hooks. A unique deployed component ID is generated for the component.
 
-You can deploy a component via the [CLI, UI or API](#management).
+You can deploy a component via the CLI, UI or API.
 
 #### Update
 

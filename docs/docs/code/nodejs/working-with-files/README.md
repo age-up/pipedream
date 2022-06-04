@@ -1,3 +1,8 @@
+---
+short_description: Store and read files with Node.js in workflows.
+thumbnail: https://res.cloudinary.com/pipedreamin/image/upload/v1646763737/docs/icons/icons8-opened-folder_y60u9l.svg
+---
+
 # Working with the filesystem in Node.js
 
 You'll commonly need to work with files in a workflow, for example: downloading content from some service to upload to another. This doc explains how to work with files in Pipedream workflows and provides some sample code for common operations.
@@ -6,7 +11,7 @@ You'll commonly need to work with files in a workflow, for example: downloading 
 
 ## The `/tmp` directory
 
-Within a workflow, you have full read-write access to the `/tmp` directory. You have `512 MB` of available space in `/tmp` to save any file.
+Within a workflow, you have full read-write access to the `/tmp` directory. You have {{$site.themeConfig.TMP_SIZE_LIMIT}} of available space in `/tmp` to save any file.
 
 ## Managing `/tmp` across workflow runs
 
@@ -72,11 +77,11 @@ defineComponent({
 
 ## Download a file to `/tmp`
 
-[See this example](/workflows/steps/code/nodejs/http-requests/#download-a-file-to-the-tmp-directory) to learn how to download a file to `/tmp`.
+[See this example](/code/nodejs/http-requests/#download-a-file-to-the-tmp-directory) to learn how to download a file to `/tmp`.
 
 ## Upload a file from `/tmp`
 
-[See this example](/workflows/steps/code/nodejs/http-requests/#upload-a-file-from-the-tmp-directory) to learn how to upload a file from `/tmp` in an HTTP request.
+[See this example](/code/nodejs/http-requests/#upload-a-file-from-the-tmp-directory) to learn how to upload a file from `/tmp` in an HTTP request.
 
 ## Download a file, uploading it in another `multipart/form-data` request
 

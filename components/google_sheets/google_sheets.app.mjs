@@ -1,5 +1,5 @@
 import axios from "axios";
-import { google } from "googleapis";
+import sheets from "@googleapis/sheets";
 import googleDrive from "../google_drive/google_drive.app.mjs";
 import {
   INSERT_DATA_OPTION, VALUE_INPUT_OPTION,
@@ -117,12 +117,32 @@ export default {
 
       throw new Error(`${value} is not an array or an array-like`);
     },
+    arrayValuesToString(arr) {
+      const convertedIndexes = [];
+
+      const res = arr.map((val, i) => {
+        if (![
+          "string",
+          "number",
+          "boolean",
+        ].includes(typeof val)) {
+          convertedIndexes.push(i) ;
+          return JSON.stringify(val);
+        }
+        return val;
+      });
+
+      return {
+        arr: res,
+        convertedIndexes,
+      };
+    },
     sheets() {
-      const auth = new google.auth.OAuth2();
+      const auth = new sheets.auth.OAuth2();
       auth.setCredentials({
         access_token: this.$auth.oauth_access_token,
       });
-      return google.sheets({
+      return sheets.sheets({
         version: "v4",
         auth,
       });
@@ -238,10 +258,11 @@ export default {
       ];
       const { sheets } = await this.getSpreadsheet(spreadsheetId, fields);
       return sheets
-        .map(({ properties }) => properties)
         .map(({
-          sheetId,
-          gridProperties: { rowCount },
+          properties: {
+            sheetId,
+            gridProperties: { rowCount = 0 } = {},
+          } = {},
         }) => ({
           spreadsheetId,
           worksheetId: sheetId,
@@ -372,7 +393,7 @@ export default {
     }) {
       const resp = await axios({
         method: "POST",
-        url: `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURI(range)}:append`,
+        url: `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}:append`,
         headers: {
           "Authorization": `Bearer ${this.$auth.oauth_access_token}`,
         },

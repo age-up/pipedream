@@ -1,15 +1,15 @@
 # Emit events
 
-Like [event sources](/event-sources/), workflows can emit events. These events can trigger other workflows, or be consumed using Pipedream's [REST API](/api/rest/#get-workflow-emits). 
+Like [event sources](/sources/), workflows can emit events. These events can trigger other workflows, or be consumed using Pipedream's [REST API](/api/rest/#get-workflow-emits). 
 
 [[toc]]
 
 ## Using `$.send.emit()` in workflows
 
-You can emit arbitrary events from any [Node.js code steps](/workflows/steps/code/) using `$.send.emit()`.
+You can emit arbitrary events from any [Node.js code steps](/code/nodejs/) using `$.send.emit()`.
 
 ```javascript
-defineComponent({
+export default defineComponent({
   async run({ steps, $ }) {
     $.send.emit({
       raw_event: {
@@ -30,12 +30,12 @@ $.send.emit({
 
 ## Using `$.send.emit` in component actions
 
-If you're authoring a [component action](/components/actions/), you can emit data using `$.send.emit`.
+If you're authoring a [component action](/components#actions), you can emit data using `$.send.emit`.
 
 `$.send.emit` functions the same as [`$.send.emit` in workflow code steps](#using-send-emit-in-workflows):
 
 ```javascript
-defineComponent({
+export default defineComponent({
   async run({ steps, $ }) {
     $.send.emit({
       raw_event: {
@@ -51,7 +51,7 @@ defineComponent({
 You can call `$.send.emit()` multiple times within a workflow, for example: to iterate over an array of values and emit an event for each.
 
 ```javascript
-defineComponent({
+export default defineComponent({
   async run({ steps, $ }) {
     const names = ["Luke", "Han", "Leia", "Obi Wan"];
     for (const name of names) {
@@ -89,7 +89,7 @@ curl "https://api.pipedream.com/v1/subscriptions?emitter_id=dc_def456&listener_i
 5. Run your emitter workflow, emitting an event using `$.send.emit()`:
 
 ```javascript
-defineComponent({
+export default defineComponent({
   async run({ steps, $ }) {
     $.send.emit({
       raw_event: {
