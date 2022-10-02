@@ -32,7 +32,6 @@ The Professional Tier includes all the features of the Developer Tier. It also c
 - You can increase the [max time per execution](/limits/#time-per-execution) to 750 seconds (up from 300 on the Developer Tier).
 - You can request [QPS increases](/limits/#qps-queries-per-second) for specific HTTP endpoints.
 - When using [concurrency and throttling controls](/workflows/concurrency-and-throttling/), you can increase a workflow's queue size up to {{$site.themeConfig.MAX_WORKFLOW_QUEUE_SIZE}} (free users are capped at a queue size of {{$site.themeConfig.DEFAULT_WORKFLOW_QUEUE_SIZE}}).
-- You have access to a [Pipedream-provided HTTP proxy](/code/nodejs/http-requests/#use-an-http-proxy-to-proxy-requests-through-another-host).
 
 ### Upgrading to the Professional Tier
 
@@ -52,7 +51,7 @@ You can create as many [organizations](/orgs/) as you'd like for free. But the q
 
 Orgs are limited to {{$site.themeConfig.TEAM_MEMBER_LIMIT}} members. If you need more than {{$site.themeConfig.TEAM_MEMBER_LIMIT}} team members, please [reach out](https://pipedream.com/support).
 
-The Team Plan also includes all of the features of the Professional Plan.
+The Team Plan includes all of the features of the Professional Plan. Additionally, you have access to a [Pipedream-provided HTTP proxy](/code/nodejs/http-requests/#use-an-http-proxy-to-proxy-requests-through-another-host).
 
 ### Upgrading to the Team Plan
 
@@ -96,6 +95,45 @@ Moreover, if you have a workflow triggered by a cron job running once a minute f
 If an event emitted by an event source triggers a single workflow, that will count as **two** invocations: one for the source, and one for the workflow. In other words, source and workflow execution is distinct: each counts invocations on its own.
 
 Your workflow's [memory settings](/workflows/settings/#memory) also impact the number of invocations you're charged for each workflow execution. [Read more here](#how-does-workflow-memory-affect-billable-invocations).
+
+#### Scenarios
+
+::: details Webhook triggered workflow
+
+*1* invocation is incurred per HTTP webhook. The HTTP endpoint is *not* considered a source.
+
+:::
+
+::: details Scheduled workflow
+
+*1* invocation is incurred per new event emitted by the source.
+*1* invocation is incurred per new event processed by the workflow.
+
+Example: a schedule triggered workflow is configured to run every 15 minutes. Two invocations are incurred every 15 minutes. One from the timer source emitting an event, and the other from the workflow processing the event.
+
+```
+2 invocations * 15 minutes * 4 times per hour * 24 hours in a day = 2,880 daily invocations
+```
+
+:::
+
+::: details App webhook powered source triggered workflow
+
+*1* invocation is incurred per new event emitted by the source.
+*1* invocation is incurred per new event processed by the workflow.
+
+Example: an _Slack New Message in Channel (Instant)_ source receives a webhook from Slack when a new message is received in a channel. Two total invocations are incurred, one from the Slack source emitting the message event, the other from the workflow processing the event.
+
+:::
+
+::: details App polling source triggered workflow
+
+*1* invocation is incurred per new event emitted by the source.
+*1* invocation is incurred per new event processed by the workflow.
+
+Example: a _Twitter Search Tweets_ source checks finds a new tweet published. Two total invocations are incurred, one from the source emitting the tweet event, the other for the workflow processing the event.
+
+:::
 
 ### Compute Time
 

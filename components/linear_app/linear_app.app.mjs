@@ -25,7 +25,7 @@ export default {
     teamId: {
       type: "string",
       label: "Team ID",
-      description: "The identifier or key of the team associated with the issue.",
+      description: "The identifier or key of the team associated with the issue",
       async options({ prevContext }) {
         return this.listResourcesOptions({
           prevContext,
@@ -42,7 +42,7 @@ export default {
     projectId: {
       type: "string",
       label: "Project ID",
-      description: "The identifier or key of the project associated with the issue.",
+      description: "The identifier or key of the project associated with the issue",
       optional: true,
       async options({ prevContext }) {
         return this.listResourcesOptions({
@@ -65,7 +65,7 @@ export default {
     assigneeId: {
       type: "string",
       label: "Assignee ID",
-      description: "The identifier of the user to assign the issue to.",
+      description: "The identifier of the user to assign the issue to",
       optional: true,
       async options({ prevContext }) {
         return this.listResourcesOptions({
@@ -83,19 +83,19 @@ export default {
     boardOrder: {
       type: "string",
       label: "Board order",
-      description: "The position of the issue in its column on the board view.",
+      description: "The position of the issue in its column on the board view",
       optional: true,
     },
     issueDescription: {
       type: "string",
       label: "Description",
-      description: "The issue description in markdown format.",
+      description: "The issue description in markdown format",
       optional: true,
     },
     issueLabels: {
       type: "string[]",
       label: "Issue Labels",
-      description: "The labels in the issue.",
+      description: "The labels in the issue",
       optional: true,
       async options({ prevContext }) {
         return this.listResourcesOptions({
@@ -108,7 +108,7 @@ export default {
     query: {
       type: "string",
       label: "Query",
-      description: "Search string to look for.",
+      description: "Search string to look for",
     },
     orderBy: {
       type: "string",
@@ -120,7 +120,7 @@ export default {
     includeArchived: {
       type: "boolean",
       label: "Include archived",
-      description: "Should archived resources be included (default: `false`).",
+      description: "Should archived resources be included? (default: `false`)",
       optional: true,
     },
   },
@@ -153,6 +153,9 @@ export default {
     }) {
       return this.client().issueSearch(query, variables);
     },
+    async getIssue(id) {
+      return this.client().issue(id);
+    },
     async listTeams(variables = {}) {
       return this.client().teams(variables);
     },
@@ -167,6 +170,9 @@ export default {
     },
     async listIssueLabels(variables = {}) {
       return this.client().issueLabels(variables);
+    },
+    async listComments(variables = {}) {
+      return this.client().comments(variables);
     },
     async listResourcesOptions({
       prevContext, resourcesFn, resouceMapper,
@@ -196,6 +202,43 @@ export default {
           hasNextPage: pageInfo.hasNextPage,
         },
       };
+    },
+    async *paginateResources({ resourcesFn }) {
+      const params = {
+        after: null,
+        first: constants.DEFAULT_LIMIT,
+      };
+      let hasNextPage = true;
+      do {
+        const {
+          nodes,
+          pageInfo,
+        } = await resourcesFn(params);
+        for (const d of nodes) {
+          yield d;
+        }
+        hasNextPage = pageInfo.hasNextPage;
+        if (hasNextPage) {
+          params.after = pageInfo.endCursor;
+        }
+      } while (hasNextPage);
+    },
+    isActionSet(body, actions) {
+      if (!actions.includes(body?.action)) {
+        return false;
+      }
+      return true;
+    },
+    async isProjectIdSet(body, projectId) {
+      if (projectId) {
+        if (!body.data?.projectId) {
+          const issue = body.data?.issue?.id && await this.getIssue(body.data?.issue?.id);
+          return issue?._project?.id === projectId;
+        } else {
+          return body.data.projectId === projectId;
+        }
+      }
+      return true;
     },
   },
 };

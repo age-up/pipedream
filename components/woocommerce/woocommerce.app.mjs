@@ -1,11 +1,16 @@
-import WooCommerceAPI from "@woocommerce/woocommerce-rest-api";
-import querystring from "querystring";
+import WooCommerceRestApi from "@woocommerce/woocommerce-rest-api";
+import querystring from "query-string";
 import constants from "./constants.mjs";
 
 export default {
   type: "app",
   app: "woocommerce",
   propDefinitions: {
+    orderId: {
+      type: "integer",
+      label: "Order ID",
+      description: "ID of the Order",
+    },
     orderStatus: {
       type: "string",
       label: "Status",
@@ -58,7 +63,7 @@ export default {
     productName: {
       type: "string",
       label: "Name",
-      description: "Name of the new product",
+      description: "Name of the product",
     },
     productType: {
       type: "string",
@@ -83,13 +88,13 @@ export default {
     productDescription: {
       type: "string",
       label: "Description",
-      description: "Description of the new product",
+      description: "Description of the product",
       optional: true,
     },
     productImage: {
       type: "string",
       label: "Image URL",
-      description: "URL of image to add to new product",
+      description: "URL of image to add to product",
       optional: true,
     },
     customer: {
@@ -123,7 +128,9 @@ export default {
       label: "Products",
       description: "Products to add to the the new order",
       async options({ page }) {
-        const products = await this.listProducts(page + 1);
+        const products = await this.listProducts({
+          page: page + 1,
+        });
         return products.map((product) => ({
           label: product.name,
           value: product.id,
@@ -147,8 +154,14 @@ export default {
   },
   methods: {
     async getClient() {
-      return new WooCommerceAPI({
-        url: `https://${this.$auth.url}`,
+      let url = this.$auth.url;
+
+      if (!/^(http(s?):\/\/)/.test(url)) {
+        url = `https://${url}`;
+      }
+
+      return new WooCommerceRestApi.default({
+        url,
         consumerKey: this.$auth.key,
         consumerSecret: this.$auth.secret,
         wpAPI: true,
@@ -157,40 +170,65 @@ export default {
     },
     async listResources(endpoint) {
       const client = await this.getClient();
-      return JSON.parse((await client.getAsync(endpoint)).body);
+      return (await client.get(endpoint)).data;
     },
     async postResource(endpoint, data) {
       const client = await this.getClient();
-      return JSON.parse((await client.postAsync(endpoint, data)).body);
+      return (await client.post(endpoint, data)).data;
+    },
+    async putResource(endpoint, data) {
+      const client = await this.getClient();
+      return (await client.put(endpoint, data)).data;
     },
     async deleteResource(endpoint) {
       const client = await this.getClient();
-      return JSON.parse((await client.deleteAsync(endpoint)).body);
+      return (await client.delete(endpoint)).data;
     },
     async createWebhook(data) {
       return this.postResource("webhooks", data);
     },
     async deleteWebhook(id) {
-      return this.deleteResource(`webhooks/${id}`);
+      return this.deleteResource(`webhooks/${id}?force=true`);
     },
-    async listCustomers(params) {
+    async listCustomers(params = null) {
       const q = querystring.stringify(params);
       return this.listResources(`customers?${q}`);
+    },
+    async getCustomer(id) {
+      return this.listResources(`customers/${id}`);
     },
     async listPaymentGateways() {
       return this.listResources("payment_gateways");
     },
-    async listProducts(page) {
-      return this.listResources(`products?page=${page}`);
+    async listProducts(params = null) {
+      const q = querystring.stringify(params);
+      return this.listResources(`products?${q}`);
+    },
+    async listCoupons(params = null) {
+      const q = querystring.stringify(params);
+      return this.listResources(`coupons?${q}`);
     },
     async listCategories(page) {
       return this.listResources(`products/categories?page=${page}`);
     },
+    async getOrder(id) {
+      return this.listResources(`orders/${id}`);
+    },
+    async listOrders(params = null) {
+      const q = querystring.stringify(params);
+      return this.listResources(`orders?${q}`);
+    },
     async createOrder(data) {
       return this.postResource("orders", data);
     },
+    async updateOrder(orderId, data) {
+      return this.putResource(`orders/${orderId}`, data);
+    },
     async createProduct(data) {
       return this.postResource("products", data);
+    },
+    async updateProduct(productId, data) {
+      return this.putResource(`products/${productId}`, data);
     },
   },
 };

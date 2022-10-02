@@ -270,7 +270,17 @@ When you're processing HTTP requests, you often don't need to issue any special 
 
 #### Customizing the HTTP response
 
-If you need to issue a custom HTTP response from a workflow, **you can use the `$.respond()` function in a Code or Action step**.
+If you need to issue a custom HTTP response from a workflow, you can either:
+- Use the **Return HTTP response** action, available on the **HTTP / Webhook** app, or
+- **Use the `$.respond()` function in a Code or Action step**.
+
+#### Using the HTTP Response Action
+
+With this action, you do not need to write any custom code. You can customize the response status code, and optionally specify response headers and body.
+
+This action uses `$.respond()` and will always [respond immediately](#returning-a-response-immediately) when called in your workflow. A [response error](#errors-with-http-responses) will still occur if your workflow throws an Error before this action runs.
+
+#### Using custom code with `$.respond()`
 
 `$.respond()` takes a single argument: an object with properties that specify the body, headers, and HTTP status code you'd like to respond with:
 
@@ -446,10 +456,6 @@ By default, your cron job will be turned **Off**. **To enable it, select either 
 ### Testing a cron job
 
 If you're running a cron job once a day, you probably don't want to wait until the next day's run to test your new code. You can manually run the workflow associated with a cron job at any time by pressing the **Run Now** button.
-
-### Future executions of your cron job
-
-You'll see the time your job is scheduled to run next under the **Next Job** section of the [Inspector](/workflows/events/inspect/).
 
 ### Job History
 

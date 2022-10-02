@@ -1,5 +1,5 @@
 import notion from "@notionhq/client";
-import constants from "./actions/common/constants.mjs";
+import NOTION_META from "./common/notion-meta-selection.mjs";
 
 export default {
   type: "app",
@@ -13,8 +13,8 @@ export default {
         const response = await this.listDatabases({
           start_cursor: prevContext.nextPageParameters ?? undefined,
         });
-        const options = this.extractDatabaseTitleOptions(response.results);
-        return this.buildPaginatedOptions(options, response.next_cursor);
+        const options = this._extractDatabaseTitleOptions(response.results);
+        return this._buildPaginatedOptions(options, response.next_cursor);
       },
     },
     pageId: {
@@ -25,38 +25,81 @@ export default {
         const response = await this.searchPage(undefined, {
           start_cursor: prevContext.nextPageParameters ?? undefined,
         });
-        const options = this.extractPageTitleOptions(response.results);
-        return this.buildPaginatedOptions(options, response.next_cursor);
+        const options = this._extractPageTitleOptions(response.results);
+        return this._buildPaginatedOptions(options, response.next_cursor);
       },
+    },
+    propertyId: {
+      type: "string",
+      label: "Property ID",
+      description: "The identifier for a Notion page property",
+      async options({ pageId }) {
+        const response = await this.retrievePage(pageId);
+
+        const parentType = response.parent.type;
+        try {
+          const { properties } = parentType === "database_id"
+            ? await this.retrieveDatabase(response.parent.database_id)
+            : response;
+
+          const propEntries = Object.entries(properties);
+          const propIds  = propEntries.length === 1 && Object.values(propEntries)[0][1].id === "title"
+            ?
+            propEntries.map((prop) => ({
+              label: prop[1].type,
+              value: prop[1].id,
+            }))
+            : propEntries.map((prop) => ({
+              label: prop[1].name,
+              value: prop[1].id,
+            }));
+          return propIds;
+        } catch (error) {
+          console.log(error);
+          return [];
+        }
+      },
+    },
+    metaTypes: {
+      type: "string[]",
+      label: "Meta Types",
+      description: "Select the page attributes such as icon and cover",
+      options: Object.keys(NOTION_META),
+      optional: true,
+      reloadProps: true,
+    },
+    propertyTypes: {
+      type: "string[]",
+      label: "Property Types",
+      description: "Select the page properties",
+      optional: true,
+      reloadProps: true,
+      async options({
+        parentId, parentType,
+      }) {
+        try {
+          const { properties } = parentType === "database"
+            ? await this.retrieveDatabase(parentId)
+            : await this.retrievePage(parentId);
+          return Object.keys(properties);
+        } catch (error) {
+          console.log(error);
+          return [];
+        }
+      },
+    },
+    archived: {
+      type: "boolean",
+      label: "Archive page",
+      description: "Set to true to archive (delete) a page. Set to false to un-archive\
+(restore) a page.",
+      optional: true,
     },
     title: {
       type: "string",
       label: "Page Title",
-      description: "The words contained in the page title to search for. Leave blank to list all pages",
+      description: "The page title. Defaults to `Untitled`.",
       optional: true,
-    },
-    iconType: {
-      type: "string",
-      label: "Icon Type",
-      description: "Emoji",
-      optional: true,
-      reloadProps: true,
-      options: constants.ICON_TYPES,
-    },
-    coverType: {
-      type: "string",
-      label: "Cover Type",
-      description: "External URL",
-      optional: true,
-      reloadProps: true,
-      options: constants.COVER_TYPES,
-    },
-    blockTypes: {
-      type: "string[]",
-      label: "Block Types",
-      description: "The block object represents content within Notion. Blocks can be text, lists, media, and more. A page is also a type of block.",
-      options: Object.keys(constants.BLOCK_TYPES),
-      reloadProps: true,
     },
     userIds: {
       type: "string[]",
@@ -71,15 +114,49 @@ export default {
         }));
       },
     },
+    sortDirection: {
+      type: "string",
+      label: "Sort Direction",
+      description: "The direction to sort.",
+      optional: true,
+      options: [
+        "ascending",
+        "descending",
+      ],
+    },
+    pageSize: {
+      type: "integer",
+      label: "Page Size",
+      description: "The number of items from the full list desired in the response. Maximum: 100",
+      default: 100,
+      optional: true,
+    },
+    startCursor: {
+      type: "string",
+      label: "Start Cursor (page_id)",
+      description: "If supplied, this endpoint will return a page of results starting after the cursor provided. If not supplied, this endpoint will return the first page of results.",
+      optional: true,
+    },
+    filter: {
+      type: "string",
+      label: "Filter",
+      description: "The value of the property to filter the results by. Possible values for object type include `page` or `database`. Limitation: Currently the only filter allowed is `object` which will filter by type of object (either `page` or `database`)",
+      optional: true,
+      options: [
+        "page",
+        "database",
+      ],
+    },
   },
   methods: {
     _getNotionClient() {
       return new notion.Client({
         auth: this.$auth.oauth_access_token,
+        notionVersion: "2022-02-22",
       });
     },
-    extractDatabaseTitleOptions(databases) {
-      const options = databases.map((database) => {
+    _extractDatabaseTitleOptions(databases) {
+      return databases.map((database) => {
         const title = database.title
           .map((title) => title.plain_text)
           .filter((title) => title.length > 0)
@@ -89,10 +166,9 @@ export default {
           value: database.id,
         };
       });
-      return options;
     },
-    extractPageTitleOptions(pages) {
-      const options = pages.map((page) => {
+    _extractPageTitleOptions(pages) {
+      return pages.map((page) => {
         const propertyFound = Object.values(page.properties)
           .find((property) => property.type === "title" && property.title.length > 0);
         const title = propertyFound?.title
@@ -104,25 +180,24 @@ export default {
           value: page.id,
         };
       });
-      return options;
     },
-    extractDatabaseTitle(database) {
-      return this.extractDatabaseTitleOptions([
-        database,
-      ])[0].label;
-    },
-    extractPageTitle(page) {
-      return this.extractPageTitleOptions([
-        page,
-      ])[0].label;
-    },
-    buildPaginatedOptions(options, nextPageParameters) {
+    _buildPaginatedOptions(options, nextPageParameters) {
       return {
         options,
         context: {
           nextPageParameters,
         },
       };
+    },
+    extractDatabaseTitle(database) {
+      return this._extractDatabaseTitleOptions([
+        database,
+      ])[0].label;
+    },
+    extractPageTitle(page) {
+      return this._extractPageTitleOptions([
+        page,
+      ])[0].label;
     },
     async listDatabases(params = {}) {
       return this._getNotionClient().search({
@@ -139,6 +214,11 @@ export default {
         ...params,
       });
     },
+    async retrieveDatabase(databaseId) {
+      return this._getNotionClient().databases.retrieve({
+        database_id: databaseId,
+      });
+    },
     async createPage(page) {
       return this._getNotionClient().pages.create(page);
     },
@@ -147,13 +227,15 @@ export default {
         page_id: pageId,
       });
     },
-    async searchPage(title, params = {}) {
+    async retrievePagePropertyItem(pageId, propertyId) {
+      return this._getNotionClient().pages.properties.retrieve({
+        page_id: pageId,
+        property_id: propertyId,
+      });
+    },
+    async search(title, params = {}) {
       return this._getNotionClient().search({
         query: title,
-        filter: {
-          property: "object",
-          value: "page",
-        },
         ...params,
       });
     },
@@ -190,7 +272,6 @@ export default {
         }
 
         cursor = nextCursor;
-
       } while (cursor);
     },
     async appendBlock(parentId, blocks) {

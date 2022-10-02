@@ -3,7 +3,7 @@ short_description: How to delay a workflow's execution with Node.js.
 thumbnail: https://res.cloudinary.com/pipedreamin/image/upload/v1646841376/docs/icons/icons8-time-96_kupxpi.png
 ---
 
-# Delaying a workflow in Node.js
+# Delaying a workflow
 
 <VideoPlayer title="Delaying Workflow Steps" url="https://www.youtube.com/embed/IBORwBnIZ-k" startAt="148" />
 
@@ -88,3 +88,9 @@ export default defineComponent({
 
 // Delay happens at the end of this step
 ```
+
+## Delays and HTTP responses
+
+You cannot run `$.respond` after running `$.flow.delay`. Pipedream ends the original execution of the workflow when `$.flow.delay` is called and issues the following response to the client to indicate this state:
+
+> $.respond() not called for this invocation
